@@ -1,3 +1,4 @@
+// PATH: app/auth/sign-in/SignInContent.tsx
 "use client"
 
 import { useState } from "react"

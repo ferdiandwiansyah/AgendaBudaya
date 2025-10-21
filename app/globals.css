@@ -1,26 +1,48 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Pakai next/font dari layout → map ke utility font-sans & font-serif */
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-lora);
+
+  /* Warna brand + aksen budaya */
+  --color-brand-50: #fbf6d9;
+  --color-brand-100: #f6efb5;
+  --color-brand-200: #efe683;
+  --color-brand-400: #dcc547;
+  --color-brand-500: #c7a100; /* emas */
+  --color-brand-600: #a68900;
+
+  --color-terra-50: #fdebe1;
+  --color-terra-200: #f3b795;
+  --color-terra-400: #e38155;
+  --color-terra-500: #ce6a33; /* terracotta */
+  --color-terra-600: #b25829;
+
+  /* Netral */
+  --color-ink: #0f172a;   /* text-ink */
+  --color-paper: #fafafa; /* bg-paper */
+
+  /* Radius & shadow khusus (jadi: rounded-2xl, shadow-card) */
+  --radius-2xl: 1.25rem;
+  --shadow-card: 0 6px 18px rgba(2,8,23,0.08);
+  --shadow-card-hover: 0 10px 24px rgba(2,8,23,0.12);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ===== Base defaults (aman, ringan) ===== */
+@layer base {
+  html, body { @apply bg-paper text-ink; }
+  h1, h2, h3 { @apply font-serif tracking-tight; }
+  a { @apply underline-offset-2; }
+  a:hover { @apply underline; }
+}
+
+/* ===== Utilities tambahan ===== */
+@layer utilities {
+  /* Motif batik halus (subtle) untuk hero/section */
+  .pattern-batik {
+    background-image: radial-gradient(currentColor 1px, transparent 1px);
+    background-size: 14px 14px;
+    color: rgba(0,0,0,0.04); /* opacity motif */
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }

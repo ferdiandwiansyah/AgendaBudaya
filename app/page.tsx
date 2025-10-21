@@ -213,12 +213,7 @@ export default async function Page() {
               >
                 Jelajahi Agenda
               </Link>
-              <Link
-                href="/events?mode=upcoming"
-                className="no-underline inline-flex items-center rounded-2xl border border-emerald-200 bg-white px-5 py-3 text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-              >
-                Lihat Event Terdekat
-              </Link>
+              
             </div>
           </div>
         </div>

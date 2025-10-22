@@ -39,8 +39,8 @@ function makeUID(ev: CalendarEvent, baseUrl: string) {
   }
 }
 
+// PATH: lib/ics.ts  (ganti fungsi ini saja)
 export function buildGoogleCalURL(ev: CalendarEvent, baseUrl: string) {
-  const text = encodeURIComponent(ev.title || "Event")
   const start = toICSDateTimeUTC(ev.starts_at)
   const end = ev.ends_at ? toICSDateTimeUTC(ev.ends_at) : start
   const url = `${baseUrl.replace(/\/$/, "")}/events/${ev.slug}`
@@ -48,16 +48,16 @@ export function buildGoogleCalURL(ev: CalendarEvent, baseUrl: string) {
 
   const params = new URLSearchParams({
     action: "TEMPLATE",
-    text,
+    text: ev.title || "Event",          // biarkan mentah, nanti di-encode otomatis
     dates: `${start}/${end}`,
-    details: encodeURIComponent(desc),
+    details: desc,                      // biarkan mentah
     location: ev.location ? String(ev.location) : "",
     trp: "false",
-    sprop: url,
   })
 
   return `https://www.google.com/calendar/render?${params.toString()}`
 }
+
 
 export function buildEventICS(ev: CalendarEvent, baseUrl: string) {
   const now = toICSDateTimeUTC(new Date().toISOString())

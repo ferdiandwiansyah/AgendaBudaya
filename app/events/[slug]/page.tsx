@@ -3,15 +3,25 @@ import Link from "next/link"
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { createServerSupabase } from "@/lib/supabaseServer"
-import { buildGoogleCalURL } from "@/lib/ics" // ← pakai untuk URL Google Calendar
+import { buildGoogleCalURL } from "@/lib/ics"
 
-// UI kecil (relative path karena file ada di app/events/[slug])
 import { Button } from "../../components/ui/Button"
 import { Badge } from "../../components/ui/Badge"
 import RegisterForm from "./RegisterForm"
 
 const BANNER_BUCKET = "event-banners"
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
+// ——— helper tampilkan WIB ———
+function fmtWIB(iso?: string | null, opts?: Intl.DateTimeFormatOptions) {
+  if (!iso) return "-"
+  const base: Intl.DateTimeFormatOptions = {
+    dateStyle: "full",
+    timeStyle: "short",
+    timeZone: "Asia/Jakarta",
+  }
+  return new Intl.DateTimeFormat("id-ID", { ...base, ...opts }).format(new Date(iso))
+}
 
 function getPublicUrl(path: string | null | undefined) {
   if (!path) return null
@@ -20,24 +30,27 @@ function getPublicUrl(path: string | null | undefined) {
   return `${base}/storage/v1/object/public/${BANNER_BUCKET}/${path}`
 }
 
+// cek apakah string adalah URL (http/https)
+function isUrl(str?: string | null) {
+  return !!str && /^https?:\/\//i.test(str)
+}
+
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-// ---------- Metadata (slug atau id) ----------
+// ---------- Metadata ----------
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const { slug: handle } = await params
   const supabase = await createServerSupabase()
 
-  // coba sebagai SLUG
   let { data: ev } = await supabase
     .from("events")
     .select("title, description, banner_path, starts_at, slug")
     .eq("slug", handle)
     .single()
 
-  // fallback sebagai ID (biar canonical/OG tetap oke)
   if (!ev) {
     const { data: byId } = await supabase
       .from("events")
@@ -66,7 +79,6 @@ async function fetchEventBySlug(supabase: any, slug: string) {
   const { data, error } = await supabase
     .from("events")
     .select(
-      // tambahkan/kurangi kolom sesuai skema kamu
       "id, slug, title, description, starts_at, ends_at, location_name, address, banner_path, capacity, registrations_count, categories(name)"
     )
     .eq("slug", slug)
@@ -85,25 +97,33 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
   const event = await fetchEventBySlug(supabase, handle)
   if (event) {
-    // tanggal untuk tampilan
-    const start = new Date(event.starts_at)
-    const end = event.ends_at ? new Date(event.ends_at) : null
-    const niceStart = start.toLocaleString("id-ID", {
-      year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
-    })
-    const niceEnd = end
-      ? end.toLocaleString("id-ID", {
-          year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
-        })
-      : null
+    // tanggal untuk tampilan (WIB)
+    const niceStart = fmtWIB(event.starts_at, { dateStyle: "full", timeStyle: "short" })
+    const niceEnd = event.ends_at ? fmtWIB(event.ends_at, { dateStyle: "full", timeStyle: "short" }) : null
 
-    // badge tanggal (kiri atas banner)
-    const day = start.toLocaleDateString("id-ID", { day: "2-digit" })
-    const mon = start.toLocaleDateString("id-ID", { month: "short" }).toUpperCase()
+    // badge tanggal (kiri atas banner) — WIB juga
+    const day = new Intl.DateTimeFormat("id-ID", { day: "2-digit", timeZone: "Asia/Jakarta" })
+      .format(new Date(event.starts_at))
+    const mon = new Intl.DateTimeFormat("id-ID", { month: "short", timeZone: "Asia/Jakarta" })
+      .format(new Date(event.starts_at))
+      .toUpperCase()
 
-    // lokasi gabungan untuk Calendar
+    // alamat → jika URL pakai langsung, jika teks buatkan link Maps
+    const addressIsUrl = isUrl(event.address)
+    const mapsHref =
+      addressIsUrl
+        ? event.address
+        : event.address
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+              [event.address, event.location_name].filter(Boolean).join(", ")
+            )}`
+          : null
+
+    // lokasi untuk Calendar: jangan kirim URL, cukup teks
     const locationForCalendar =
-      [event.location_name, event.address].filter(Boolean).join(", ") || null
+      addressIsUrl
+        ? (event.location_name || null)
+        : ([event.location_name, event.address].filter(Boolean).join(", ") || null)
 
     // URL Google Calendar
     const gcal = buildGoogleCalURL(
@@ -119,7 +139,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       APP_URL
     )
 
-    // JSON-LD
+    // JSON-LD (alamat harus teks, jangan URL)
     const jsonLd = {
       "@context": "https://schema.org",
       "@type": "Event",
@@ -132,11 +152,10 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       url: `${APP_URL}/events/${event.slug}`,
       image: event.banner_url ? [event.banner_url] : undefined,
       location: event.location_name
-        ? { "@type": "Place", name: event.location_name, address: event.address || undefined }
+        ? { "@type": "Place", name: event.location_name, address: addressIsUrl ? undefined : (event.address || undefined) }
         : undefined,
     }
 
-    // --- UI ---
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -184,7 +203,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               aria-label="Add to Google Calendar"
               className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/95 text-emerald-700 shadow-card ring-1 ring-black/5 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             >
-              {/* Ikon kalender sederhana */}
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M7 2h2v3H7zM15 2h2v3h-2z" />
                 <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 4v10h14V9H5z" />
@@ -199,16 +217,16 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
               <Badge>{event.category_name ?? "Umum"}</Badge>
               <span className="text-terra-500">•</span>
-              <span>Mulai: {niceStart}</span>
+              <span>Mulai: {niceStart} WIB</span>
               {niceEnd && (
                 <>
                   <span className="text-terra-500">•</span>
-                  <span>Selesai: {niceEnd}</span>
+                  <span>Selesai: {niceEnd} WIB</span>
                 </>
               )}
             </div>
 
-            {/* CTA bar (tanpa tombol GCal & tanpa Download .ics) */}
+            {/* CTA bar */}
             <div className="mt-4 flex flex-wrap gap-2">
               <Link href="/events" aria-label="Kembali ke daftar">
                 <Button variant="ghost">← Kembali</Button>
@@ -238,7 +256,19 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
                 <h2 className="text-base font-semibold">Lokasi</h2>
                 {event.location_name && <p className="mt-2 text-sm text-gray-700">{event.location_name}</p>}
-                {event.address && <p className="text-sm text-gray-700">{event.address}</p>}
+
+                {mapsHref && (
+                  <p className="text-sm">
+                    <a
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-700 underline underline-offset-2 break-all"
+                    >
+                      {isUrl(event.address) ? "Buka di Google Maps" : event.address}
+                    </a>
+                  </p>
+                )}
               </section>
             )}
 

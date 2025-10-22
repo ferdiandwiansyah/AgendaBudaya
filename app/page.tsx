@@ -7,15 +7,6 @@ import Footer from "./components/ui/Footer";
 // Paksa dynamic render agar data terbaru (dan cookie auth) selalu dipakai
 export const dynamic = "force-dynamic";
 
-/**
- * Landing page: modern, responsif, dan mudah digunakan.
- * Menampilkan:
- * 1) Hero
- * 2) About (deskripsi singkat)
- * 3) 3 Event populer (dari featured_events → fallback upcoming/latest)
- * 4) CTA besar ke /events
- */
-
 type EventRow = {
   id: string | number;
   slug: string;
@@ -41,17 +32,27 @@ async function getPublicBannerUrl(
   return data?.publicUrl ?? null;
 }
 
-// Tambahkan helper normalisasi ini
+/* ==== helper kecil untuk cek URL ==== */
+function isUrl(x?: string | null) {
+  return !!x && /^https?:\/\//i.test(x);
+}
+
+/* ==== NORMALISASI EVENT UNTUK KARTU POPULER ==== */
+/* Fokus lokasi: ambil HANYA location_name (atau alternatif non-address), hindari address */
 function normalizeEventForCard(ev: any): EventRow {
-  // Lokasi: coba beberapa nama kolom umum
-  const location =
+  // Prioritas lokasi: location_name -> location -> venue -> city -> place -> place_name
+  // (SENGAJA tidak memakai 'address' agar link Google Maps tidak tampil di kartu populer)
+  const rawLocation =
+    ev.location_name ??
     ev.location ??
     ev.venue ??
     ev.city ??
-    ev.address ??
     ev.place ??
     ev.place_name ??
     null;
+
+  // Jika user salah isi lokasi dengan URL, sembunyikan
+  const location = isUrl(rawLocation) ? null : rawLocation;
 
   // URL gambar langsung (http...)
   const urlCandidates = ["banner_url", "banner", "image_url", "cover_url", "thumbnail_url"];
@@ -82,7 +83,7 @@ function normalizeEventForCard(ev: any): EventRow {
     slug: ev.slug,
     title: ev.title,
     starts_at: ev.starts_at ?? null,
-    location,
+    location, // <- sekarang pasti bukan address dan bukan URL
     description: ev.description ?? ev.summary ?? null,
     banner_url,
     banner_path,
@@ -144,7 +145,6 @@ async function fetchPopularEvents(limit = 3): Promise<EventRow[]> {
 
   return (latest ?? []).map((ev: any) => normalizeEventForCard(ev));
 }
-
 
 function formatDate(dateIso: string | null): string {
   if (!dateIso) return "Tanggal belum ditentukan";
@@ -213,7 +213,6 @@ export default async function Page() {
               >
                 Jelajahi Agenda
               </Link>
-              
             </div>
           </div>
         </div>
@@ -270,10 +269,10 @@ export default async function Page() {
                       src={e._banner}
                       alt={e.title}
                       fill
-                      unoptimized 
+                      unoptimized
                       priority={false}
                       placeholder="blur"
-                      blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mP8/5+hHgAH4QJ7D6wzVQAAAABJRU5ErkJggg=="
+                      blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEU5ErkJggg=="
                       sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                       className="object-cover transition duration-300 group-hover:scale-[1.03]"
                     />

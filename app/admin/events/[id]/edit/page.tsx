@@ -1,12 +1,26 @@
 // PATH: app/admin/events/[id]/edit/page.tsx
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { supabaseClient } from "@/lib/supabaseClient"
 
 type Category = { id: string | number; name: string }
+
+/** ==== Helpers waktu lokal <-> ISO (tanpa file baru) ==== */
+function pad(n: number) { return String(n).padStart(2, "0") }
+function isoToLocalInput(iso?: string | null) {
+  if (!iso) return ""
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ""
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+function localInputToISO(local?: string | null) {
+  if (!local) return null
+  const d = new Date(`${local}:00`)
+  return isNaN(d.getTime()) ? null : d.toISOString()
+}
 
 export default function EditEventPage() {
   const router = useRouter()
@@ -27,10 +41,9 @@ export default function EditEventPage() {
 
   const [formError, setFormError] = useState<string | null>(null)
 
-  // Supabase public URL
   const PUBLIC_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
-  // 🧭 Ambil kategori
+  // Ambil kategori
   useEffect(() => {
     const fetchCategories = async () => {
       const { data, error } = await supabase.from("categories").select("id,name").order("name")
@@ -40,7 +53,7 @@ export default function EditEventPage() {
     fetchCategories()
   }, [supabase])
 
-  // 🧭 Ambil event by id
+  // Ambil event by id
   useEffect(() => {
     const fetchEvent = async () => {
       setLoading(true)
@@ -52,8 +65,13 @@ export default function EditEventPage() {
 
       if (error) {
         setFormError(error.message)
-      } else {
-        setEvent(data)
+      } else if (data) {
+        setEvent({
+          ...data,
+          starts_at: isoToLocalInput(data.starts_at),
+          ends_at: isoToLocalInput(data.ends_at),
+          category_id: data.category_id ? String(data.category_id) : "",
+        })
       }
       setLoading(false)
     }
@@ -61,7 +79,7 @@ export default function EditEventPage() {
     if (params.id) fetchEvent()
   }, [params.id, supabase])
 
-  // 🔎 Preview file
+  // Preview file
   useEffect(() => {
     if (!bannerFile) { setBannerPreview(null); return }
     const url = URL.createObjectURL(bannerFile)
@@ -88,7 +106,7 @@ export default function EditEventPage() {
       return
     }
     setFormError(null)
-    setRemoveBanner(false) // jika upload baru, batalkan flag hapus
+    setRemoveBanner(false)
     setBannerFile(f)
   }
 
@@ -116,7 +134,7 @@ export default function EditEventPage() {
     try {
       let bannerPath: string | null = event.banner_path ?? null
 
-      // 🗑 Hapus banner lama jika diminta
+      // Hapus banner lama jika diminta
       if (removeBanner && event.banner_path) {
         const { error: rmErr } = await supabase.storage
           .from("event-banners")
@@ -129,9 +147,8 @@ export default function EditEventPage() {
         bannerPath = null
       }
 
-      // ⬆️ Upload banner baru (override yang lama)
+      // Upload banner baru (override)
       if (bannerFile) {
-        // jika ada banner lama & belum dihapus, hapus dulu agar tidak orphan
         if (event.banner_path && !removeBanner) {
           await supabase.storage.from("event-banners").remove([event.banner_path]).catch(() => {})
         }
@@ -140,7 +157,7 @@ export default function EditEventPage() {
         const fileName = `${params.id}-${Date.now().toString(36)}-${safe}`
         const { error: uploadError } = await supabase.storage
           .from("event-banners")
-          .upload(fileName, bannerFile, { contentType: bannerFile.type })
+          .upload(fileName, bannerFile, { contentType: bannerFile.type, upsert: false })
 
         if (uploadError) {
           setFormError("Gagal upload banner: " + uploadError.message)
@@ -150,17 +167,20 @@ export default function EditEventPage() {
         bannerPath = fileName
       }
 
-      // 📝 Update
+      // Konversi datetime-local → ISO UTC
+      const startsISO = localInputToISO(event.starts_at)
+      const endsISO   = event.ends_at ? localInputToISO(event.ends_at) : null
+
       const { error } = await supabase
         .from("events")
         .update({
-          title: event.title,
-          description: event.description,
-          starts_at: event.starts_at,
-          ends_at: event.ends_at,
-          location_name: event.location_name,
-          address: event.address,
-          category_id: event.category_id,
+          title: event.title?.trim() || null,
+          description: event.description?.trim() || null,
+          starts_at: startsISO,
+          ends_at: endsISO,
+          location_name: event.location_name?.trim() || null,
+          address: event.address?.trim() || null,
+          category_id: event.category_id || null,
           banner_path: bannerPath,
         })
         .eq("id", params.id as string)
@@ -178,10 +198,6 @@ export default function EditEventPage() {
       setSaving(false)
     }
   }
-
-  // min attribute untuk datetime-local
-  const minStart = useMemo(() => (event?.starts_at ? undefined : new Date().toISOString().slice(0, 16)), [event?.starts_at])
-  const minEnd   = event?.starts_at ? event.starts_at.slice(0, 16) : minStart
 
   if (loading) {
     return (
@@ -273,10 +289,9 @@ export default function EditEventPage() {
                   <input
                     type="datetime-local"
                     name="starts_at"
-                    value={event.starts_at ? event.starts_at.slice(0, 16) : ""}
+                    value={event.starts_at || ""}
                     onChange={handleChange}
                     required
-                    min={minStart}
                     className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </label>
@@ -286,9 +301,9 @@ export default function EditEventPage() {
                   <input
                     type="datetime-local"
                     name="ends_at"
-                    value={event.ends_at ? event.ends_at.slice(0, 16) : ""}
+                    value={event.ends_at || ""}
                     onChange={handleChange}
-                    min={minEnd}
+                    min={event.starts_at || undefined}
                     className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </label>
@@ -351,7 +366,6 @@ export default function EditEventPage() {
                   Banner
                 </label>
 
-                {/* Preview current or new */}
                 <div className="mt-2 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img

@@ -10,16 +10,16 @@ export async function GET(
   const supabase = await createServerSupabase()
 
   // Cari sebagai slug, kalau tidak ada coba sebagai id
-  let { data: ev } = await supabase
+  let { data: ev, error } = await supabase
     .from("events")
-    .select("id, slug, title, starts_at, ends_at, location, location_name, address, description")
+    .select("id, slug, title, starts_at, ends_at, location_name, address, description")
     .eq("slug", slug)
     .maybeSingle()
 
-  if (!ev) {
+  if (!ev || error) {
     const byId = await supabase
       .from("events")
-      .select("id, slug, title, starts_at, ends_at, location, location_name, address, description")
+      .select("id, slug, title, starts_at, ends_at, location_name, address, description")
       .eq("id", slug)
       .maybeSingle()
     ev = byId.data ?? null
@@ -31,13 +31,19 @@ export async function GET(
     process.env.NEXT_PUBLIC_SITE_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
 
+  // Lokasi untuk ICS: kalau address adalah URL, pakai nama lokasi saja
+  const addressIsUrl = !!ev.address && /^https?:\/\//i.test(ev.address)
+  const locationStr = addressIsUrl
+    ? (ev.location_name ?? null)
+    : ([ev.location_name, ev.address].filter(Boolean).join(", ") || null)
+
   const item: CalendarEvent = {
     id: ev.id,
     slug: ev.slug,
     title: ev.title,
     starts_at: ev.starts_at,
     ends_at: ev.ends_at ?? null,
-    location: ev.location ?? ev.location_name ?? ev.address ?? null,
+    location: locationStr,
     description: ev.description ?? null,
   }
 

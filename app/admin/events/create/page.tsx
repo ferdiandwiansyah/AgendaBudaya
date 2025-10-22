@@ -1,4 +1,4 @@
-// PATH: app/admin/events/create/page.tsx 
+// PATH: app/admin/events/create/page.tsx
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
@@ -7,6 +7,21 @@ import Link from "next/link"
 import { supabaseClient } from "@/lib/supabaseClient"
 
 type Category = { id: string | number; name: string }
+
+/** ===== Helpers waktu lokal → string input & ISO (tanpa file baru) ===== */
+function pad(n: number) { return String(n).padStart(2, "0") }
+/** "YYYY-MM-DDTHH:mm" pakai zona lokal (untuk attribute `min`) */
+function nowLocalInputValue() {
+  const d = new Date()
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+/** Konversi nilai <input type="datetime-local"> (lokal) → ISO UTC */
+function localInputToISO(local: string | null | undefined) {
+  if (!local) return null
+  // "2025-10-22T09:00" → Date lokal → ISO
+  const d = new Date(`${local}:00`)
+  return isNaN(d.getTime()) ? null : d.toISOString()
+}
 
 export default function CreateEventPage() {
   const router = useRouter()
@@ -61,7 +76,6 @@ export default function CreateEventPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
-    // Validasi ringan (opsional)
     const maxMB = 5
     if (f.size > maxMB * 1024 * 1024) {
       setFormError(`Ukuran gambar maksimal ${maxMB}MB`)
@@ -100,7 +114,7 @@ export default function CreateEventPage() {
         const unique = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2,8)}-${safeName}`
         const { error: uploadError } = await supabase.storage
           .from("event-banners")
-          .upload(unique, bannerFile, { contentType: bannerFile.type })
+          .upload(unique, bannerFile, { contentType: bannerFile.type, upsert: false })
 
         if (uploadError) {
           setFormError("Gagal upload banner: " + uploadError.message)
@@ -110,19 +124,28 @@ export default function CreateEventPage() {
         bannerPath = unique
       }
 
-      // ✅ Insert data event
-      const { error } = await supabase.from("events").insert([{
-        ...event,
-        banner_path: bannerPath,
-      }])
+      // ⬇️ Konversi nilai input (lokal) → ISO UTC agar aman di DB (timestamptz)
+      const startsISO = localInputToISO(event.starts_at)
+      const endsISO   = event.ends_at ? localInputToISO(event.ends_at) : null
 
+      const payload = {
+        title: event.title.trim(),
+        description: event.description?.trim() || null,
+        starts_at: startsISO,        // e.g. "2025-10-22T02:00:00.000Z"
+        ends_at: endsISO,            // atau null
+        location_name: event.location_name?.trim() || null,
+        address: event.address?.trim() || null,
+        category_id: event.category_id || null, // "" → null
+        banner_path: bannerPath,
+      }
+
+      const { error } = await supabase.from("events").insert([payload])
       if (error) {
         setFormError("Gagal menambahkan event: " + error.message)
         setSaving(false)
         return
       }
 
-      // Sukses
       router.push("/admin/events")
     } catch (err: any) {
       setFormError(err?.message || "Terjadi kesalahan tak terduga.")
@@ -131,9 +154,9 @@ export default function CreateEventPage() {
     }
   }
 
-  // min attribute untuk datetime-local (opsional)
-  const minStart = useMemo(() => new Date().toISOString().slice(0, 16), [])
-  const minEnd   = event.starts_at ? event.starts_at.slice(0, 16) : minStart
+  // ✅ "min" harus pakai waktu lokal, jangan toISOString()
+  const minStart = useMemo(() => nowLocalInputValue(), [])
+  const minEnd   = event.starts_at || minStart
 
   return (
     <div className="min-h-[100svh] bg-gradient-to-b from-white to-emerald-50/30">
@@ -217,7 +240,7 @@ export default function CreateEventPage() {
                 </label>
 
                 <label className="block text-sm font-medium text-zinc-800">
-                  Selesai 
+                  Selesai
                   <input
                     type="datetime-local"
                     name="ends_at"
@@ -232,7 +255,7 @@ export default function CreateEventPage() {
               {/* Lokasi & Alamat */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-medium text-zinc-800">
-                  Lokasi 
+                  Lokasi
                   <input
                     type="text"
                     name="location_name"
@@ -283,7 +306,7 @@ export default function CreateEventPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-800">
-                  Banner 
+                  Banner
                   <input
                     type="file"
                     accept="image/*"

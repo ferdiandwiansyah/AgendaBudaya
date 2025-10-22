@@ -5,7 +5,8 @@ import { notFound, redirect } from "next/navigation"
 import { createServerSupabase } from "@/lib/supabaseServer"
 import { buildGoogleCalURL } from "@/lib/ics"
 
-import { Button } from "../../components/ui/Button"
+// HAPUS pemakaian Button agar tak pakai tema emas
+// import { Button } from "../../components/ui/Button"
 import { Badge } from "../../components/ui/Badge"
 import RegisterForm from "./RegisterForm"
 
@@ -161,14 +162,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
         {/* Header Hero */}
-        <section className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
-          {/* Latar mesh */}
+        <section className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm ring-1 ring-black/5">
+          {/* Latar mesh (emerald/teal agar selaras) */}
           <div
             className="pointer-events-none absolute inset-0 -z-10"
             style={{
               backgroundImage: `
-                radial-gradient(60% 60% at 0% 0%, rgba(199,161,0,0.14), transparent 55%),
-                radial-gradient(60% 60% at 100% 0%, rgba(206,106,51,0.12), transparent 50%)
+                radial-gradient(60% 60% at 0% 0%, rgba(16,185,129,0.12), transparent 55%),
+                radial-gradient(60% 60% at 100% 0%, rgba(13,148,136,0.10), transparent 50%)
               `,
             }}
           />
@@ -181,15 +182,15 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                 className="max-h-[420px] w-full rounded-t-2xl object-cover"
               />
             ) : (
-              <div className="grid h-48 w-full place-items-center rounded-t-2xl bg-gray-100 text-gray-400">
+              <div className="grid h-48 w-full place-items-center rounded-t-2xl bg-emerald-50 text-emerald-600">
                 Tidak ada banner
               </div>
             )}
 
             {/* Badge tanggal (kiri-atas) */}
-            <div className="absolute left-4 top-4 rounded-xl bg-white/95 px-2 py-1 text-center shadow-card backdrop-blur">
-              <div className="text-[11px] font-semibold leading-3 text-terra-600">{mon}</div>
-              <time className="block text-lg font-bold leading-4 text-ink" dateTime={event.starts_at}>
+            <div className="absolute left-4 top-4 rounded-xl bg-white/95 px-2 py-1 text-center shadow-sm ring-1 ring-black/5 backdrop-blur">
+              <div className="text-[11px] font-semibold leading-3 text-emerald-600">{mon}</div>
+              <time className="block text-lg font-bold leading-4 text-zinc-900" dateTime={event.starts_at}>
                 {day}
               </time>
             </div>
@@ -201,7 +202,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               rel="noopener noreferrer"
               title="Add to Google Calendar"
               aria-label="Add to Google Calendar"
-              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/95 text-emerald-700 shadow-card ring-1 ring-black/5 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/95 text-emerald-700 shadow-sm ring-1 ring-black/5 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M7 2h2v3H7zM15 2h2v3h-2z" />
@@ -213,25 +214,35 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
           {/* Judul + meta */}
           <div className="p-5">
-            <h1 className="font-serif text-3xl">{event.title}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+            <h1 className="font-serif text-3xl text-zinc-900">{event.title}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600">
               <Badge>{event.category_name ?? "Umum"}</Badge>
-              <span className="text-terra-500">•</span>
+              <span className="text-zinc-300">•</span>
               <span>Mulai: {niceStart} WIB</span>
               {niceEnd && (
                 <>
-                  <span className="text-terra-500">•</span>
+                  <span className="text-zinc-300">•</span>
                   <span>Selesai: {niceEnd} WIB</span>
                 </>
               )}
             </div>
 
-            {/* CTA bar */}
+            {/* CTA bar — pakai kelas emerald, bukan <Button /> global */}
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/events" aria-label="Kembali ke daftar">
-                <Button variant="ghost">← Kembali</Button>
+              <Link
+                href="/events"
+                aria-label="Kembali ke daftar"
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 text-sm font-medium text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              >
+                ← Kembali
               </Link>
-              <Button>Registrasi Segera</Button>
+
+              <a
+                href="#registrasi"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+              >
+                Registrasi Segera
+              </a>
             </div>
           </div>
         </section>
@@ -239,13 +250,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         {/* Konten */}
         <div className="mt-6 grid gap-6 md:grid-cols-3">
           {/* Deskripsi */}
-          <section className="md:col-span-2 rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
-            <h2 className="text-base font-semibold">Deskripsi</h2>
-            <div className="prose prose-sm mt-2 max-w-none text-gray-700">
+          <section className="md:col-span-2 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ring-1 ring-black/5">
+            <h2 className="text-base font-semibold text-zinc-900">Deskripsi</h2>
+            <div className="prose prose-sm mt-2 max-w-none text-zinc-700">
               {event.description ? (
                 <p>{event.description}</p>
               ) : (
-                <p className="italic text-gray-500">Belum ada deskripsi.</p>
+                <p className="italic text-zinc-500">Belum ada deskripsi.</p>
               )}
             </div>
           </section>
@@ -253,30 +264,44 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
           {/* Sidebar: Lokasi + Registrasi */}
           <aside className="space-y-6">
             {(event.location_name || event.address) && (
-              <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
-                <h2 className="text-base font-semibold">Lokasi</h2>
-                {event.location_name && <p className="mt-2 text-sm text-gray-700">{event.location_name}</p>}
+              <section className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ring-1 ring-black/5">
+                <h2 className="text-base font-semibold text-zinc-900">Lokasi</h2>
+
+                {event.location_name && (
+                  <p className="mt-2 text-sm text-zinc-700">{event.location_name}</p>
+                )}
 
                 {mapsHref && (
-                  <p className="text-sm">
+                  <p className="mt-2 text-sm">
                     <a
                       href={mapsHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-700 underline underline-offset-2 break-all"
+                      className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700 underline-offset-2 hover:bg-emerald-100"
                     >
-                      {isUrl(event.address) ? "Buka di Google Maps" : event.address}
+                      <span className="font-medium">
+                        {isUrl(event.address) ? "Buka di Google Maps" : "Lihat peta"}
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3z" />
+                        <path d="M5 5h6V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6h-2v6H5V5z" />
+                      </svg>
                     </a>
                   </p>
                 )}
               </section>
             )}
 
-            <RegisterForm
-              eventId={event.id}
-              capacity={event.capacity ?? null}
-              registeredCount={event.registrations_count ?? 0}
-            />
+            <section
+              id="registrasi"
+              className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ring-1 ring-black/5"
+            >
+              <RegisterForm
+                eventId={event.id}
+                capacity={event.capacity ?? null}
+                registeredCount={event.registrations_count ?? 0}
+              />
+            </section>
           </aside>
         </div>
       </div>

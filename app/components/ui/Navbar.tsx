@@ -2,13 +2,14 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { useEffect, useState, MouseEvent } from "react"
 
 const NAV = [
   { href: "/", label: "Beranda" },
   { href: "/events", label: "Agenda" },
-  { href: "/#about", label: "Tentang" }, // anchor ke section ABOUT di homepage
+  { href: "/#about", label: "Tentang" },
 ]
 
 export default function Navbar() {
@@ -17,10 +18,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [hash, setHash] = useState<string>("")
 
-  // tutup menu saat route/hash berubah
   useEffect(() => { setOpen(false) }, [pathname, hash])
 
-  // track scroll utk shadow + track hash untuk active state anchor
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
     const onHash = () => setHash(window.location.hash || "")
@@ -34,89 +33,100 @@ export default function Navbar() {
     }
   }, [])
 
-  // Aktif:
-  // - link dengan hash (#about): aktif HANYA jika pathname === base & window.hash cocok
-  // - tanpa hash: aktif jika tepat di base atau child path-nya
   const isActive = (href: string) => {
     const [base, anchor] = href.split("#")
-    if (anchor) {
-      return pathname === (base || "/") && hash === `#${anchor}`
-    }
-    if ((base || "/") === "/") return pathname === "/" && hash === "" // pastikan hanya aktif saat hash kosong
+    if (anchor) return pathname === (base || "/") && hash === `#${anchor}`
+    if ((base || "/") === "/") return pathname === "/" && hash === ""
     return pathname === base || pathname.startsWith(`${base}/`)
   }
 
-  // Smooth scroll untuk anchor di halaman yang sama (offset header ~ 64px)
   const handleAnchorClick = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
     const [base, anchor] = href.split("#")
     if (!anchor) return
-    if (pathname !== (base || "/")) return // biarkan Next navigasi normal ke halaman lain
+    if (pathname !== (base || "/")) return
 
     const el = document.getElementById(anchor)
     if (!el) return
     e.preventDefault()
-    const headerHeight = 64 // kira-kira tinggi header
+    const headerHeight = 64
     const top = el.getBoundingClientRect().top + window.scrollY - headerHeight - 8
     window.scrollTo({ top, behavior: "smooth" })
-    // update hash agar state aktif ikut berubah
     history.replaceState(null, "", `#${anchor}`)
     setHash(`#${anchor}`)
   }
 
-  // Klik Beranda: kalau sudah di "/" bersihkan hash & scroll ke top
   const handleHomeClick = (e: MouseEvent<HTMLAnchorElement>) => {
     if (pathname === "/") {
       e.preventDefault()
-      history.replaceState(null, "", "/")    // clear hash
+      history.replaceState(null, "", "/")
       setHash("")
       window.scrollTo({ top: 0, behavior: "smooth" })
       setOpen(false)
     }
-    // kalau bukan di "/", biarkan Next navigate normal
   }
 
   return (
     <header
-      className={[
-        "sticky top-0 z-50 w-full border-b backdrop-blur transition",
-        scrolled ? "border-zinc-200/80 bg-white/80 shadow-sm" : "border-zinc-200/60 bg-white/60",
-      ].join(" ")}
       role="banner"
+      className={[
+        "sticky top-0 z-50 w-full border-b bg-white/60 backdrop-blur supports-[backdrop-filter]:bg-white/50",
+        "transition-shadow",
+        scrolled ? "border-zinc-200/80 shadow-sm" : "border-zinc-200/60 shadow-[0_0_0_0_rgba(0,0,0,0)]",
+      ].join(" ")}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        {/* Brand */}
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        {/* Brand: logo + teks singkat (teks disembunyikan di mobile) */}
         <Link
           href="/"
           onClick={handleHomeClick}
-          className="no-underline text-base font-semibold tracking-tight text-zinc-900 hover:text-emerald-700"
-          aria-label="Portal Event & Budaya Majalengka - Beranda"
+          className="group no-underline flex items-center gap-2"
+          aria-label="Beranda"
+          title="Beranda"
         >
-          Portal Event & Budaya Majalengka
+          <Image
+            src="/logo.rmv.png"   // simpan file di /public/logo.rmv.png
+            alt="Logo Majabudaya"
+            width={36}
+            height={36}
+            priority
+            className="h-14 w-auto select-none gap-0"
+          />
+          <span className="hidden md:inline text-base font-semibold tracking-tight text-zinc-900 group-hover:text-emerald-700">
+            Agenda Budaya
+          </span>
+          <span className="sr-only">Portal Event & Budaya Majalengka</span>
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
           {NAV.map((item) => {
             const isHash = item.href.includes("#")
             const isHome = item.href === "/"
+            const active = isActive(item.href)
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 onClick={
                   isHash ? (e) => handleAnchorClick(e, item.href)
                   : isHome ? handleHomeClick
                   : undefined
                 }
-                aria-current={isActive(item.href) ? "page" : undefined}
+                aria-current={active ? "page" : undefined}
                 className={[
-                  "no-underline text-sm transition",
-                  isActive(item.href)
-                    ? "text-emerald-700"
-                    : "text-zinc-700 hover:text-emerald-700",
+                  "no-underline relative rounded-lg px-3 py-2 text-sm transition",
+                  active ? "text-emerald-700" : "text-zinc-700 hover:text-emerald-700",
                 ].join(" ")}
               >
                 {item.label}
+                {/* Active underline */}
+                <span
+                  className={[
+                    "pointer-events-none absolute inset-x-2 -bottom-0.5 h-0.5 rounded-full bg-emerald-600 transition",
+                    active ? "opacity-100" : "opacity-0 group-hover:opacity-50",
+                  ].join(" ")}
+                />
               </Link>
             )
           })}
@@ -124,7 +134,8 @@ export default function Navbar() {
           {/* CTA kanan */}
           <Link
             href="/auth/sign-in"
-            className="no-underline inline-flex items-center rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            prefetch={false}
+            className="no-underline ml-2 inline-flex items-center rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             Admin
           </Link>
@@ -162,21 +173,21 @@ export default function Navbar() {
             {NAV.map((item) => {
               const isHash = item.href.includes("#")
               const isHome = item.href === "/"
+              const active = isActive(item.href)
               return (
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    prefetch={false}
                     onClick={(e) => {
                       if (isHash) handleAnchorClick(e, item.href)
                       else if (isHome) handleHomeClick(e)
                       setOpen(false)
                     }}
-                    aria-current={isActive(item.href) ? "page" : undefined}
+                    aria-current={active ? "page" : undefined}
                     className={[
                       "no-underline block rounded-xl px-3 py-2 text-sm transition",
-                      isActive(item.href)
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "text-zinc-800 hover:bg-zinc-100",
+                      active ? "bg-emerald-50 text-emerald-700" : "text-zinc-800 hover:bg-zinc-100",
                     ].join(" ")}
                   >
                     {item.label}
@@ -187,8 +198,9 @@ export default function Navbar() {
             <li className="pt-2">
               <Link
                 href="/auth/sign-in"
+                prefetch={false}
                 onClick={() => setOpen(false)}
-                className="no-underline inline-flex w-full items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                className="no-underline inline-flex w-full items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
                 Masuk Admin
               </Link>

@@ -15,7 +15,7 @@ type SPromise = Promise<{
   q?: string
   category?: string
   page?: string
-  mode?: "upcoming" | "all" | "past"
+  mode?: "mendatang" | "semua" | "lewat"
 }>
 
 // === Utils ===
@@ -53,15 +53,15 @@ function formatMonShort(dateIso: string) {
 
 function applyFilters(
   base: any,
-  { q, category, mode }: { q?: string; category?: string; mode: "upcoming" | "all" | "past" }
+  { q, category, mode }: { q?: string; category?: string; mode: "mendatang" | "semua" | "lewat" }
 ) {
   let qy = base
   if (category) qy = qy.eq("category_id", category)
   if (q) qy = qy.or(`title.ilike.%${q}%,location_name.ilike.%${q}%`)
 
   const nowIso = new Date().toISOString()
-  if (mode === "upcoming") qy = qy.gte("starts_at", nowIso)
-  if (mode === "past") qy = qy.lt("starts_at", nowIso)
+  if (mode === "mendatang") qy = qy.gte("starts_at", nowIso)
+  if (mode === "lewat") qy = qy.lt("starts_at", nowIso)
 
   return qy
 }
@@ -78,7 +78,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SProm
   const sp = await searchParams
   const q = (sp?.q ?? "").trim()
   const category = (sp?.category ?? "").trim()
-  const mode = (sp?.mode ?? "all") as "upcoming" | "all" | "past"
+  const mode = (sp?.mode ?? "semua") as "mendatang" | "semua" | "lewat"
   const page = Math.max(1, Number.parseInt(sp?.page ?? "1") || 1)
 
   // data (paged)
@@ -158,7 +158,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SProm
               dari <span className="font-semibold text-zinc-900">{count}</span> event
               {q ? <> untuk pencarian <span className="font-semibold">&ldquo;{q}&rdquo;</span></> : null}
               {category ? " (terfilter kategori)" : ""}
-              {mode !== "all" ? ` — ${mode === "upcoming" ? "yang akan datang" : "yang telah berlalu"}` : ""}
+              {mode !== "semua" ? ` — ${mode === "mendatang" ? "yang akan datang" : "yang telah berlalu"}` : ""}
             </span>
           ) : (
             <span>Tidak ada hasil.</span>

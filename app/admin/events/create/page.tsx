@@ -154,10 +154,6 @@ export default function CreateEventPage() {
     }
   }
 
-  // ✅ "min" harus pakai waktu lokal, jangan toISOString()
-  const minStart = useMemo(() => nowLocalInputValue(), [])
-  const minEnd   = event.starts_at || minStart
-
   return (
     <div className="min-h-[100svh] bg-gradient-to-b from-white to-emerald-50/30">
       {/* Top bar */}
@@ -234,7 +230,6 @@ export default function CreateEventPage() {
                     value={event.starts_at}
                     onChange={handleChange}
                     required
-                    min={minStart}
                     className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </label>
@@ -246,7 +241,6 @@ export default function CreateEventPage() {
                     name="ends_at"
                     value={event.ends_at}
                     onChange={handleChange}
-                    min={minEnd}
                     className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </label>

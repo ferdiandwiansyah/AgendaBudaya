@@ -5,19 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation"
 export default function ModeToggle({
   mode,
 }: {
-  mode: "upcoming" | "all" | "past"
+  mode: "mendatang" | "semua" | "lewat"
 }) {
   const router = useRouter()
   const sp = useSearchParams()
 
-  const setMode = (m: "upcoming" | "all" | "past") => {
+  const setMode = (m: "mendatang" | "semua" | "lewat") => {
     const params = new URLSearchParams(sp.toString())
     params.set("mode", m)
     params.delete("page")
     router.push(`/events?${params.toString()}`)
   }
 
-  const Item = ({ m, label }: { m: "upcoming" | "all" | "past"; label: string }) => {
+  const Item = ({ m, label }: { m: "mendatang" | "semua" | "lewat"; label: string }) => {
     const active = mode === m
     return (
       <button
@@ -36,9 +36,9 @@ export default function ModeToggle({
 
   return (
     <div className="inline-flex items-center gap-1 rounded-2xl border border-gray-200 bg-white p-1 shadow-card">
-      <Item m="upcoming" label="Upcoming" />
-      <Item m="all" label="All" />
-      <Item m="past" label="Past" />
+      <Item m="mendatang" label="Mendatang" />
+      <Item m="semua" label="Semua" />
+      <Item m="lewat" label="Lewat" />
     </div>
   )
 }

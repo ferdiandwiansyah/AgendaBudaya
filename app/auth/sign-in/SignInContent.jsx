@@ -65,14 +65,14 @@ export default function SignInContent() {
       <header className="border-b border-zinc-200/70 bg-white/60 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <button
-            type="button"
+            type="submit"
             onClick={handleBack}
             className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white/70 px-3 py-1.5 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
           >
             <ArrowLeft className="h-4 w-4" />
             Kembali
           </button>
-          <span className="text-xs text-zinc-500">Portal Event & Budaya Majalengka</span>
+          <span className="text-xs text-zinc-500">Login</span>
         </div>
       </header>
 

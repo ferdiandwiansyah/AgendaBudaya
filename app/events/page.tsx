@@ -78,7 +78,7 @@ export default async function EventsPage({ searchParams }: { searchParams: SProm
   const sp = await searchParams
   const q = (sp?.q ?? "").trim()
   const category = (sp?.category ?? "").trim()
-  const mode = (sp?.mode ?? "upcoming") as "upcoming" | "all" | "past"
+  const mode = (sp?.mode ?? "all") as "upcoming" | "all" | "past"
   const page = Math.max(1, Number.parseInt(sp?.page ?? "1") || 1)
 
   // data (paged)

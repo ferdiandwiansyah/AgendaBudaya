@@ -1,9 +1,10 @@
-// app/auth/callback/set/route.ts
+// PATH: app/auth/callback/set/route.ts
 import { NextResponse } from "next/server"
 import { createServerSupabase } from "@/lib/supabaseServer"
 
 export async function POST(req: Request) {
-  const supabase = await createServerSupabase()
+  const supabase = await createServerSupabase("server") // ⬅️ pastikan "server"
+
   const { event, session } = await req.json()
 
   if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {

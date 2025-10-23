@@ -1,5 +1,4 @@
 // File: app/admin/events/page.tsx
-// ------------------------------
 "use client";
 
 import { useEvents } from "./useEvents";
@@ -15,7 +14,7 @@ export default function AdminEventsPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="mx-auto max-w-7xl p-6">
         <HeaderBar />
         <StatsBar skeleton />
         <ActionBar
@@ -33,7 +32,7 @@ export default function AdminEventsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="mx-auto max-w-7xl p-6">
       <HeaderBar />
 
       {errorMsg ? (

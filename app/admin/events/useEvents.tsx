@@ -1,5 +1,5 @@
 // File: app/admin/events/useEvents.ts
-// ------------------------------
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";

@@ -46,7 +46,7 @@ export default function SignInContent() {
       if (error) throw new Error("INVALID_CREDENTIALS")
 
       const { data: { session } } = await supabaseClient.auth.getSession()
-      await fetch("/auth/callback", {
+      await fetch("/auth/callback/set", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ event: "SIGNED_IN", session }),
@@ -136,15 +136,7 @@ export default function SignInContent() {
               </p>
             )}
 
-            <div className="mt-5 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200/60">
-              Belum punya akun admin?{" "}
-              <Link href="/admin/setup" className="font-semibold underline underline-offset-2 hover:no-underline">
-                Buat admin baru
-              </Link>{" "}
-              (butuh kode setup).
-            </div>
           </div>
-
           <p className="mt-6 text-center text-sm">
             <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 font-semibold text-zinc-800 hover:text-emerald-700">
               <Home className="h-5 w-5" />

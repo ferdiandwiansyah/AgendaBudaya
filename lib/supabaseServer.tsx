@@ -3,41 +3,35 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { createClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 
-type ReqCookie = { name: string; value: string }
-
 type Mode = "auto" | "server" | "stateless"
 
 /**
  * createServerSupabase
- *  - mode "auto" (default): kalau ada refresh-cookie → SSR client, kalau tidak → stateless client
- *  - mode "server": SELALU SSR client (dipakai di Route Handler yang nulis/hapus cookie)
- *  - mode "stateless": SELALU stateless client
+ *  - mode "auto": kalau ada cookie sesi → SSR client, kalau tidak → stateless client
+ *  - mode "server": selalu SSR client (untuk Route Handler/Server Action)
+ *  - mode "stateless": selalu stateless client
  */
 export async function createServerSupabase(mode: Mode = "auto") {
+  // ✅ Environment kamu mengembalikan Promise<ReadonlyRequestCookies>
   const cookieStore = await cookies()
-
-  let all: ReqCookie[] = []
-  try {
-    // Next.js cookies().getAll() mengembalikan array { name, value, ... }
-    const raw = cookieStore.getAll()
-    all = raw.map(c => ({ name: c.name, value: c.value }))
-  } catch {
-    all = []
-  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-  // Deteksi cookie refresh token (untuk mode auto)
-  const hasSession =
-    all.some((c) => c.name.startsWith("sb-") && c.name.endsWith("-refresh-token"))
+  // Ambil semua cookie bila tersedia (beberapa konteks hanya readonly)
+  const all = typeof (cookieStore as any).getAll === "function"
+    ? (cookieStore as any).getAll()
+    : []
 
-  // Pilih mode
-  const useServerClient =
-    mode === "server" || (mode === "auto" && hasSession)
+  // ✅ Deteksi sesi pakai sb-...-auth-token (paling stabil)
+  const hasSession = (all as Array<{ name: string }>).some(
+    (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
+  )
+
+  const useServerClient = mode === "server" || (mode === "auto" && hasSession)
 
   if (!useServerClient) {
-    // MODE stateless: tidak simpan/refresh session di server (buat halaman publik)
+    // MODE stateless: untuk halaman publik (tanpa read/write cookie di server)
     return createClient(url, anon, {
       auth: {
         persistSession: false,
@@ -46,28 +40,28 @@ export async function createServerSupabase(mode: Mode = "auto") {
     })
   }
 
-  // MODE server: SSR client penuh, bisa baca/tulis cookie
-  const client = createServerClient(url, anon, {
+  // Wrapper aman: hanya set cookie jika API set() tersedia (Route Handler/Server Action)
+  const safeSet = (name: string, value: string, options?: CookieOptions) => {
+    if (typeof (cookieStore as any).set === "function") {
+      (cookieStore as any).set(name, value, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        ...options,
+      })
+    }
+  }
+  const safeGet = (name: string) =>
+    typeof (cookieStore as any).get === "function"
+      ? (cookieStore as any).get(name)?.value
+      : undefined
+
+  // MODE server: SSR client penuh (baca/tulis cookie httpOnly)
+  return createServerClient(url, anon, {
     cookies: {
-      getAll() {
-        try {
-          return cookieStore.getAll()
-        } catch {
-          return []
-        }
-      },
-      setAll(cookiesToSet) {
-        // Hanya bisa set cookie di Route Handler / Server Action
-        try {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options as CookieOptions)
-          })
-        } catch {
-          // Di RSC biasa, abaikan
-        }
-      },
+      get: safeGet,
+      set: safeSet,
+      remove: (name, options) => safeSet(name, "", { maxAge: 0, ...options }),
     },
   })
-
-  return client
 }

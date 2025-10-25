@@ -60,7 +60,7 @@ export function HeaderBar() {
           aria-label="Kelola featured"
         >
           <Star className="h-4 w-4" />
-          <span>Featured</span>
+          <span>Unggulan</span>
         </Link>
 
         <Link

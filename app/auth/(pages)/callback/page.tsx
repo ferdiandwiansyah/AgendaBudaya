@@ -45,6 +45,8 @@ function AuthCallbackInner() {
         } = await supabaseClient.auth.getSession()
 
         if (!session?.access_token || !session?.refresh_token) {
+          // ✅ bersihkan jejak lokal agar tidak ada refresh loop
+          await supabaseClient.auth.signOut({ scope: "local" })
           setError("Sesi tidak lengkap. Coba login ulang.")
           return
         }

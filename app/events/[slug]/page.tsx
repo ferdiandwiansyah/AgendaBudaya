@@ -4,9 +4,6 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { createServerSupabase } from "@/lib/supabaseServer"
 import { buildGoogleCalURL } from "@/lib/ics"
-
-// HAPUS pemakaian Button agar tak pakai tema emas
-// import { Button } from "../../components/ui/Button"
 import { Badge } from "../../components/ui/Badge"
 import RegisterForm from "./RegisterForm"
 
@@ -35,6 +32,12 @@ function getPublicUrl(path: string | null | undefined) {
 function isUrl(str?: string | null) {
   return !!str && /^https?:\/\//i.test(str)
 }
+
+// format harga sederhana
+const asIDR = (n?: number | null, cur?: string | null) =>
+  typeof n === "number" && n > 0
+    ? new Intl.NumberFormat("id-ID", { style: "currency", currency: (cur || "IDR") }).format(n)
+    : "Gratis"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -79,9 +82,12 @@ export async function generateMetadata(
 async function fetchEventBySlug(supabase: any, slug: string) {
   const { data, error } = await supabase
     .from("events")
-    .select(
-      "id, slug, title, description, starts_at, ends_at, location_name, address, banner_path, capacity, registrations_count, categories(name)"
-    )
+    .select(`
+      id, slug, title, description, starts_at, ends_at,
+      location_name, address, banner_path, capacity, registrations_count,
+      price, currency, payment_mode, whatsapp_contact, external_payment_url,
+      categories(name)
+    `)
     .eq("slug", slug)
     .single()
   if (error || !data) return null
@@ -103,11 +109,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
     const niceEnd = event.ends_at ? fmtWIB(event.ends_at, { dateStyle: "full", timeStyle: "short" }) : null
 
     // badge tanggal (kiri atas banner) — WIB juga
-    const day = new Intl.DateTimeFormat("id-ID", { day: "2-digit", timeZone: "Asia/Jakarta" })
-      .format(new Date(event.starts_at))
-    const mon = new Intl.DateTimeFormat("id-ID", { month: "short", timeZone: "Asia/Jakarta" })
-      .format(new Date(event.starts_at))
-      .toUpperCase()
+    const day = new Intl.DateTimeFormat("id-ID", { day: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(event.starts_at))
+    const mon = new Intl.DateTimeFormat("id-ID", { month: "short", timeZone: "Asia/Jakarta" }).format(new Date(event.starts_at)).toUpperCase()
 
     // alamat → jika URL pakai langsung, jika teks buatkan link Maps
     const addressIsUrl = isUrl(event.address)
@@ -225,6 +228,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                   <span>Selesai: {niceEnd} WIB</span>
                 </>
               )}
+              <span className="text-zinc-300">•</span>
+              <span>Harga: {asIDR(event.price, event.currency)}</span>
             </div>
 
             {/* CTA bar — pakai kelas emerald, bukan <Button /> global */}
@@ -292,15 +297,52 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
               </section>
             )}
 
+            {/* Registrasi: kondisional */}
             <section
               id="registrasi"
               className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ring-1 ring-black/5"
             >
-              <RegisterForm
-                eventId={event.id}
-                capacity={event.capacity ?? null}
-                registeredCount={event.registrations_count ?? 0}
-              />
+              <h2 className="mb-2 text-base font-semibold text-zinc-900">Pendaftaran</h2>
+
+              {event.payment_mode === "external" ? (
+                <>
+                  {event.whatsapp_contact ? (
+                    <a
+                      href={`https://wa.me/${event.whatsapp_contact}?text=${encodeURIComponent(
+                        `Halo panitia, saya ingin mendaftar event "${event.title}" (${APP_URL}/events/${event.slug}).`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    >
+                      Daftar via WhatsApp
+                    </a>
+                  ) : null}
+
+                  {event.external_payment_url ? (
+                    <a
+                      href={event.external_payment_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 ml-2 inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    >
+                      Daftar di Situs Resmi
+                    </a>
+                  ) : null}
+
+                  {!event.whatsapp_contact && !event.external_payment_url && (
+                    <p className="mt-2 text-sm text-amber-700">
+                      Pendaftaran eksternal belum dikonfigurasi (WA/URL belum diisi).
+                    </p>
+                  )}
+                </>
+              ) : (
+                <RegisterForm
+                  eventId={event.id}
+                  capacity={event.capacity ?? null}
+                  registeredCount={event.registrations_count ?? 0}
+                />
+              )}
             </section>
           </aside>
         </div>
@@ -321,3 +363,4 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
   notFound()
 }
+

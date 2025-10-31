@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Footer from "./Footer"
 
-const HIDE =  [ "/auth", "/admin/events", "/admin/setup", "/admin/danger", "/admin/featured" ]
+const HIDE =  [ "/auth", "/admin/events", "/admin/setup", "/admin/registrations", "/admin/featured" ]
 
 const FooterGuard = () => {
   const pathname = usePathname();

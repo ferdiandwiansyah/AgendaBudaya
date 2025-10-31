@@ -1,4 +1,4 @@
-// app/admin/registrations/page.tsx
+// PATH: app/admin/registrations/page.tsx
 import Link from "next/link"
 import { createServerSupabase } from "@/lib/supabaseServer"
 import Filters from "./Filters"
@@ -9,7 +9,7 @@ const PAGE_SIZE = 20
 
 type SPromise = Promise<{
   q?: string
-  status?: "registered" | "checked_in" | "cancelled" | ""
+  status?: "pending" | "registered" | "paid" | "checked_in" | "cancelled" | ""
   event?: string
   page?: string
 }>
@@ -26,7 +26,7 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
   // Next 15: await searchParams
   const sp = await searchParams
   const q = (sp?.q ?? "").trim()
-  const status = (sp?.status ?? "") as "" | "registered" | "checked_in" | "cancelled"
+  const status = (sp?.status ?? "") as "" | "pending" | "registered" | "paid" | "checked_in" | "cancelled"
   const eventId = (sp?.event ?? "").trim()
   const page = Math.max(1, Number.parseInt(sp?.page ?? "1") || 1)
 
@@ -53,6 +53,7 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
   if (status) countQ = countQ.eq("status", status)
   if (q) countQ = countQ.or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`)
   const { count } = await countQ
+
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE))
   const displayFrom = (count ?? 0) > 0 ? from + 1 : 0
   const displayTo = Math.min(count ?? 0, from + (rows?.length ?? 0))
@@ -77,10 +78,10 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
       {/* Filters */}
       <div className="mt-5">
         <Filters
-            events={(events ?? []).map((e) => ({ id: e.id, title: e.title }))}
-            initialQ={q}
-            initialStatus={status}
-            initialEventId={eventId}
+          events={(events ?? []).map((e) => ({ id: e.id, title: e.title }))}
+          initialQ={q}
+          initialStatus={status}
+          initialEventId={eventId}
         />
       </div>
 
@@ -121,7 +122,7 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
                   </td>
                   <td className="px-4 py-3">
                     {ev?.title ? (
-                      <Link href={`/events/${ev.slug ?? ""}`} className="text-terra-600 hover:underline">
+                      <Link href={`/events/${ev.slug ?? ""}`} className="text-emerald-700 hover:underline">
                         {ev.title}
                       </Link>
                     ) : <span className="text-gray-500">—</span>}
@@ -131,7 +132,7 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
                   </td>
                   <td className="px-4 py-3 text-gray-600">{created}</td>
                   <td className="px-4 py-3 text-right">
-                    <RowActions id={r.id} currentStatus={r.status} />
+                    <RowActions id={r.id} currentStatus={r.status as any} />
                   </td>
                 </tr>
               )
@@ -170,14 +171,18 @@ export default async function AdminRegistrationsPage({ searchParams }: { searchP
   )
 }
 
-function StatusBadge({ status }: { status: "registered" | "checked_in" | "cancelled" }) {
+function StatusBadge({ status }: { status: "pending" | "registered" | "paid" | "checked_in" | "cancelled" }) {
   const cls =
-    status === "registered" ? "bg-amber-50 text-amber-800 border-amber-100" :
-    status === "checked_in" ? "bg-emerald-50 text-emerald-800 border-emerald-100" :
-    "bg-rose-50 text-rose-800 border-rose-100"
+    status === "pending"     ? "bg-zinc-50 text-zinc-800 border-zinc-200" :
+    status === "registered"  ? "bg-amber-50 text-amber-800 border-amber-100" :
+    status === "paid"        ? "bg-emerald-50 text-emerald-800 border-emerald-100" :
+    status === "checked_in"  ? "bg-emerald-50 text-emerald-800 border-emerald-100" :
+                               "bg-rose-50 text-rose-800 border-rose-100"
   const label =
-    status === "registered" ? "Registered" :
-    status === "checked_in" ? "Checked-in" : "Cancelled"
+    status === "pending"     ? "Pending" :
+    status === "registered"  ? "Registered" :
+    status === "paid"        ? "Paid" :
+    status === "checked_in"  ? "Checked-in" : "Cancelled"
 
   return (
     <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${cls}`}>

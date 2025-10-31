@@ -24,6 +24,8 @@ export default function RegisterForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (full || loading) return
+
     setLoading(true); setMsg(null); setErr(null)
     try {
       const res = await fetch("/api/register", {
@@ -32,13 +34,20 @@ export default function RegisterForm({
         body: JSON.stringify({ event_id: eventId, name, email, phone }),
       })
       const data = await res.json()
+
       if (!res.ok) {
         setErr(data?.message || "Gagal mendaftar.")
-      } else {
-        setMsg(data?.message || "Pendaftaran berhasil.")
-        setName(""); setEmail(""); setPhone("")
+        return
       }
-    } catch (e: any) {
+
+      // Redirect jika mode external
+      if (data?.whatsapp_url) { window.location.href = data.whatsapp_url; return }
+      if (data?.external_url) { window.location.href = data.external_url; return }
+
+      // Mode free → tampilkan pesan sukses & reset
+      setMsg(data?.message || "Pendaftaran berhasil.")
+      setName(""); setEmail(""); setPhone("")
+    } catch {
       setErr("Terjadi kesalahan jaringan.")
     } finally {
       setLoading(false)
@@ -70,6 +79,7 @@ export default function RegisterForm({
             required
             minLength={2}
             placeholder="Nama Anda"
+            disabled={loading || full}
           />
         </label>
 
@@ -82,6 +92,7 @@ export default function RegisterForm({
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="nama@domain.com"
+            disabled={loading || full}
           />
         </label>
 
@@ -92,6 +103,7 @@ export default function RegisterForm({
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="08xxxxxxxxxx"
+            disabled={loading || full}
           />
         </label>
 
@@ -107,8 +119,8 @@ export default function RegisterForm({
           {loading ? "Mengirim..." : full ? "Kuota Penuh" : "Daftar Sekarang"}
         </button>
 
-        {msg && <p className="text-sm text-emerald-700">{msg}</p>}
-        {err && <p className="text-sm text-red-600">{err}</p>}
+        {msg && <p className="text-sm text-emerald-700" aria-live="polite">{msg}</p>}
+        {err && <p className="text-sm text-red-600" aria-live="assertive">{err}</p>}
       </form>
     </div>
   )

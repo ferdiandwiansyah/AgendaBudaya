@@ -8,7 +8,7 @@ import { supabaseClient } from "@/lib/supabaseClient"
 
 type Category = { id: string | number; name: string }
 
-/** ==== Helpers waktu lokal <-> ISO (tanpa file baru) ==== */
+/** Helpers waktu lokal <-> ISO */
 function pad(n: number) { return String(n).padStart(2, "0") }
 function isoToLocalInput(iso?: string | null) {
   if (!iso) return ""
@@ -29,18 +29,13 @@ export default function EditEventPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-
   const [event, setEvent] = useState<any>(null)
-
   const [categories, setCategories] = useState<Category[]>([])
   const [catError, setCatError] = useState<string | null>(null)
-
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [bannerPreview, setBannerPreview] = useState<string | null>(null)
   const [removeBanner, setRemoveBanner] = useState(false)
-
   const [formError, setFormError] = useState<string | null>(null)
-
   const PUBLIC_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 
   // Ambil kategori
@@ -62,7 +57,6 @@ export default function EditEventPage() {
         .select("*")
         .eq("id", params.id as string)
         .single()
-
       if (error) {
         setFormError(error.message)
       } else if (data) {
@@ -71,11 +65,16 @@ export default function EditEventPage() {
           starts_at: isoToLocalInput(data.starts_at),
           ends_at: isoToLocalInput(data.ends_at),
           category_id: data.category_id ? String(data.category_id) : "",
+          // pastikan field tambahan ada default
+          price: data.price ?? 0,
+          currency: data.currency ?? "IDR",
+          payment_mode: (data.payment_mode as "free" | "external") ?? "free",
+          whatsapp_contact: data.whatsapp_contact ?? "",
+          external_payment_url: data.external_payment_url ?? "",
         })
       }
       setLoading(false)
     }
-
     if (params.id) fetchEvent()
   }, [params.id, supabase])
 
@@ -87,24 +86,22 @@ export default function EditEventPage() {
     return () => URL.revokeObjectURL(url)
   }, [bannerFile])
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setEvent({ ...event, [e.target.name]: e.target.value })
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    if (name === "price") {
+      const v = value === "" ? 0 : Math.max(0, Number(value))
+      setEvent((s: any) => ({ ...s, price: Number.isFinite(v) ? v : 0 }))
+      return
+    }
+    setEvent((s: any) => ({ ...s, [name]: value }))
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
     const maxMB = 5
-    if (f.size > maxMB * 1024 * 1024) {
-      setFormError(`Ukuran gambar maksimal ${maxMB}MB`)
-      return
-    }
-    if (!/^image\//.test(f.type)) {
-      setFormError("File harus berupa gambar.")
-      return
-    }
+    if (f.size > maxMB * 1024 * 1024) { setFormError(`Ukuran gambar maksimal ${maxMB}MB`); return }
+    if (!/^image\//.test(f.type)) { setFormError("File harus berupa gambar."); return }
     setFormError(null)
     setRemoveBanner(false)
     setBannerFile(f)
@@ -115,6 +112,9 @@ export default function EditEventPage() {
     if (!event?.starts_at) return "Tanggal mulai wajib diisi."
     if (event?.ends_at && new Date(event.ends_at) < new Date(event.starts_at)) {
       return "Tanggal selesai tidak boleh lebih awal dari tanggal mulai."
+    }
+    if (event?.payment_mode === "external" && !event?.whatsapp_contact && !event?.external_payment_url) {
+      return "Mode eksternal memerlukan WhatsApp panitia atau URL pendaftaran."
     }
     return null
   }
@@ -128,22 +128,14 @@ export default function EditEventPage() {
     e.preventDefault()
     const v = validate()
     if (v) { setFormError(v); return }
-
     setSaving(true); setFormError(null)
-
     try {
       let bannerPath: string | null = event.banner_path ?? null
 
       // Hapus banner lama jika diminta
       if (removeBanner && event.banner_path) {
-        const { error: rmErr } = await supabase.storage
-          .from("event-banners")
-          .remove([event.banner_path])
-        if (rmErr) {
-          setFormError("Gagal menghapus banner lama: " + rmErr.message)
-          setSaving(false)
-          return
-        }
+        const { error: rmErr } = await supabase.storage.from("event-banners").remove([event.banner_path])
+        if (rmErr) { setFormError("Gagal menghapus banner lama: " + rmErr.message); setSaving(false); return }
         bannerPath = null
       }
 
@@ -152,24 +144,18 @@ export default function EditEventPage() {
         if (event.banner_path && !removeBanner) {
           await supabase.storage.from("event-banners").remove([event.banner_path]).catch(() => {})
         }
-
         const safe = bannerFile.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9.\-_]/g, "")
         const fileName = `${params.id}-${Date.now().toString(36)}-${safe}`
         const { error: uploadError } = await supabase.storage
           .from("event-banners")
           .upload(fileName, bannerFile, { contentType: bannerFile.type, upsert: false })
-
-        if (uploadError) {
-          setFormError("Gagal upload banner: " + uploadError.message)
-          setSaving(false)
-          return
-        }
+        if (uploadError) { setFormError("Gagal upload banner: " + uploadError.message); setSaving(false); return }
         bannerPath = fileName
       }
 
       // Konversi datetime-local → ISO UTC
       const startsISO = localInputToISO(event.starts_at)
-      const endsISO   = event.ends_at ? localInputToISO(event.ends_at) : null
+      const endsISO = event.ends_at ? localInputToISO(event.ends_at) : null
 
       const { error } = await supabase
         .from("events")
@@ -182,15 +168,16 @@ export default function EditEventPage() {
           address: event.address?.trim() || null,
           category_id: event.category_id || null,
           banner_path: bannerPath,
+          // tambahan:
+          price: event.price ?? 0,
+          currency: event.currency || "IDR",
+          payment_mode: event.payment_mode || "free",
+          whatsapp_contact: event.whatsapp_contact?.trim() || null,
+          external_payment_url: event.external_payment_url?.trim() || null,
         })
         .eq("id", params.id as string)
 
-      if (error) {
-        setFormError("Gagal update event: " + error.message)
-        setSaving(false)
-        return
-      }
-
+      if (error) { setFormError("Gagal update event: " + error.message); setSaving(false); return }
       router.push("/admin/events")
     } catch (err: any) {
       setFormError(err?.message || "Terjadi kesalahan tak terduga.")
@@ -206,13 +193,10 @@ export default function EditEventPage() {
       </main>
     )
   }
-
   if (!event) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          Event tidak ditemukan.
-        </div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">Event tidak ditemukan.</div>
       </main>
     )
   }
@@ -222,10 +206,7 @@ export default function EditEventPage() {
       {/* Top bar */}
       <header className="border-b border-zinc-200/70 bg-white/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link
-            href="/admin/events"
-            className="inline-flex items-center rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-800 shadow-sm hover:bg-zinc-50"
-          >
+          <Link href="/admin/events" className="inline-flex items-center rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-800 shadow-sm hover:bg-zinc-50">
             ← Kembali
           </Link>
           <span className="text-xs text-zinc-500">Edit Event</span>
@@ -237,9 +218,7 @@ export default function EditEventPage() {
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-sm">
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-zinc-900">Edit Event</h1>
-            <p className="mt-1 text-sm text-zinc-600">
-              Perbarui informasi acara. Kamu bisa mengganti atau menghapus banner.
-            </p>
+            <p className="mt-1 text-sm text-zinc-600">Perbarui informasi acara. Kamu bisa mengganti atau menghapus banner.</p>
           </div>
 
           {formError && (
@@ -295,7 +274,6 @@ export default function EditEventPage() {
                     className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </label>
-
                 <label className="block text-sm font-medium text-zinc-800">
                   Selesai
                   <input
@@ -322,7 +300,6 @@ export default function EditEventPage() {
                     placeholder="Contoh: Alun-Alun Majalengka"
                   />
                 </label>
-
                 <label className="block text-sm font-medium text-zinc-800">
                   Alamat
                   <input
@@ -349,32 +326,87 @@ export default function EditEventPage() {
                   >
                     <option value="">-- Pilih Kategori --</option>
                     {categories.map((cat) => (
-                      <option key={String(cat.id)} value={String(cat.id)}>
-                        {cat.name}
-                      </option>
+                      <option key={String(cat.id)} value={String(cat.id)}>{cat.name}</option>
                     ))}
                   </select>
                 </label>
                 {catError && <p className="mt-1 text-xs text-red-600">{catError}</p>}
+              </div>
+
+              {/* --- Pendaftaran / Harga --- */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-zinc-800">
+                  Harga (opsional)
+                  <input
+                    type="number"
+                    name="price"
+                    min={0}
+                    value={event.price ?? 0}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="0 = Gratis"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium text-zinc-800">
+                  Mata Uang
+                  <input
+                    name="currency"
+                    value={event.currency ?? "IDR"}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="IDR"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <label className="block text-sm font-medium text-zinc-800">
+                  Mode Pendaftaran
+                  <select
+                    name="payment_mode"
+                    value={event.payment_mode}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="free">Free (Form di situs)</option>
+                    <option value="external">External (WA/Situs Panitia)</option>
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-zinc-800">
+                  WhatsApp Panitia (opsional)
+                  <input
+                    name="whatsapp_contact"
+                    value={event.whatsapp_contact}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="62812xxxx (tanpa +)"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium text-zinc-800">
+                  URL Pendaftaran Eksternal (opsional)
+                  <input
+                    type="url"
+                    name="external_payment_url"
+                    value={event.external_payment_url}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="https://panitia.tld/form"
+                  />
+                </label>
               </div>
             </div>
 
             {/* Kolom kanan: Banner */}
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-zinc-800">
-                  Banner
-                </label>
-
+                <label className="block text-sm font-medium text-zinc-800">Banner</label>
                 <div className="mt-2 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={bannerPreview || currentBannerUrl || "/placeholder.png"}
-                    alt="Banner"
-                    className="h-40 w-full object-cover"
-                  />
+                  <img src={bannerPreview || currentBannerUrl || "/placeholder.png"} alt="Banner" className="h-40 w-full object-cover" />
                 </div>
-
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <label className="relative inline-flex cursor-pointer items-center rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50">
                     <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
@@ -387,9 +419,7 @@ export default function EditEventPage() {
                       onClick={() => { setRemoveBanner((v) => !v) }}
                       className={[
                         "inline-flex items-center rounded-2xl border px-3 py-2 text-sm font-medium transition",
-                        removeBanner
-                          ? "border-red-200 bg-red-50 text-red-700"
-                          : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
+                        removeBanner ? "border-red-200 bg-red-50 text-red-700" : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50",
                       ].join(" ")}
                     >
                       {removeBanner ? "Batal Hapus Banner" : "Hapus Banner"}
@@ -406,10 +436,7 @@ export default function EditEventPage() {
                     </button>
                   )}
                 </div>
-
-                <p className="mt-2 text-xs text-zinc-500">
-                  File yang di upload, maksimal 5MB.
-                </p>
+                <p className="mt-2 text-xs text-zinc-500">File yang di upload, maksimal 5MB.</p>
               </div>
 
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-800">

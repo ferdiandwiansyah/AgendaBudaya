@@ -1,3 +1,4 @@
+// PATH: app/admin/registrations/Filters.tsx
 "use client"
 
 import { useRouter, useSearchParams } from "next/navigation"
@@ -11,7 +12,7 @@ export default function Filters({
 }: {
   events: { id: string; title: string }[]
   initialQ: string
-  initialStatus: "" | "registered" | "checked_in" | "cancelled"
+  initialStatus: "" | "pending" | "registered" | "paid" | "checked_in" | "cancelled"
   initialEventId: string
 }) {
   const router = useRouter()
@@ -39,24 +40,26 @@ export default function Filters({
       <input
         type="search"
         placeholder="Cari nama / email / HP…"
-        className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm shadow-card focus:outline-none focus:ring-2 focus:ring-brand-500 md:w-80"
+        className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm shadow-card focus:outline-none focus:ring-2 focus:ring-emerald-500 md:w-80"
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
       <select
-        className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm shadow-card focus:outline-none focus:ring-2 focus:ring-brand-500 md:w-56"
+        className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm shadow-card focus:outline-none focus:ring-2 focus:ring-emerald-500 md:w-56"
         value={status}
         onChange={(e) => setStatus(e.target.value as any)}
       >
         <option value="">Semua Status</option>
+        <option value="pending">Pending</option>
         <option value="registered">Registered</option>
+        <option value="paid">Paid</option>
         <option value="checked_in">Checked-in</option>
         <option value="cancelled">Cancelled</option>
       </select>
       <select
-        className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm shadow-card focus:outline-none focus:ring-2 focus:ring-brand-500 md:w-72"
+        className="h-10 w-full rounded-2xl border border-gray-200 bg-white px-3 text-sm shadow-card focus:outline-none focus:ring-2 focus:ring-emerald-500 md:w-72"
         value={eventId}
-        onChange={(e) => setEventId(e.target.value)}
+       onChange={(e) => setEventId(e.target.value)}
       >
         <option value="">Semua Event</option>
         {events.map((e) => (

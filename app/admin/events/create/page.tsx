@@ -1,24 +1,17 @@
 // PATH: app/admin/events/create/page.tsx
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabaseClient } from "@/lib/supabaseClient"
 
 type Category = { id: string | number; name: string }
 
-/** ===== Helpers waktu lokal → string input & ISO (tanpa file baru) ===== */
+/** Helpers waktu lokal → ISO */
 function pad(n: number) { return String(n).padStart(2, "0") }
-/** "YYYY-MM-DDTHH:mm" pakai zona lokal (untuk attribute `min`) */
-function nowLocalInputValue() {
-  const d = new Date()
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-/** Konversi nilai <input type="datetime-local"> (lokal) → ISO UTC */
 function localInputToISO(local: string | null | undefined) {
-  if (!local) return null
-  // "2025-10-22T09:00" → Date lokal → ISO
+  if (!local) return null // "2025-10-22T09:00" → ISO
   const d = new Date(`${local}:00`)
   return isNaN(d.getTime()) ? null : d.toISOString()
 }
@@ -35,15 +28,19 @@ export default function CreateEventPage() {
     location_name: "",
     address: "",
     category_id: "",
+    // tambahan:
+    price: 0 as number | null,
+    currency: "IDR",
+    payment_mode: "free" as "free" | "external",
+    whatsapp_contact: "",
+    external_payment_url: "",
   })
 
   const [categories, setCategories] = useState<Category[]>([])
   const [catLoading, setCatLoading] = useState(true)
   const [catError, setCatError] = useState<string | null>(null)
-
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [bannerPreview, setBannerPreview] = useState<string | null>(null)
-
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -67,24 +64,22 @@ export default function CreateEventPage() {
     return () => URL.revokeObjectURL(url)
   }, [bannerFile])
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setEvent({ ...event, [e.target.name]: e.target.value })
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    if (name === "price") {
+      const v = value === "" ? 0 : Math.max(0, Number(value))
+      setEvent((s) => ({ ...s, price: Number.isFinite(v) ? v : 0 }))
+      return
+    }
+    setEvent((s) => ({ ...s, [name]: value }))
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
     const maxMB = 5
-    if (f.size > maxMB * 1024 * 1024) {
-      setFormError(`Ukuran gambar maksimal ${maxMB}MB`)
-      return
-    }
-    if (!/^image\//.test(f.type)) {
-      setFormError("File harus berupa gambar.")
-      return
-    }
+    if (f.size > maxMB * 1024 * 1024) { setFormError(`Ukuran gambar maksimal ${maxMB}MB`); return }
+    if (!/^image\//.test(f.type)) { setFormError("File harus berupa gambar."); return }
     setFormError(null)
     setBannerFile(f)
   }
@@ -96,6 +91,9 @@ export default function CreateEventPage() {
     if (event.ends_at && event.starts_at && new Date(event.ends_at) < new Date(event.starts_at)) {
       return "Tanggal selesai tidak boleh lebih awal dari tanggal mulai."
     }
+    if (event.payment_mode === "external" && !event.whatsapp_contact && !event.external_payment_url) {
+      return "Mode eksternal memerlukan WhatsApp panitia atau URL pendaftaran."
+    }
     return null
   }
 
@@ -104,10 +102,8 @@ export default function CreateEventPage() {
     const v = validate()
     if (v) { setFormError(v); return }
     setSaving(true); setFormError(null)
-
     try {
       let bannerPath: string | null = null
-
       // ✅ Upload banner kalau ada
       if (bannerFile) {
         const safeName = bannerFile.name.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9.\-_]/g, "")
@@ -115,37 +111,33 @@ export default function CreateEventPage() {
         const { error: uploadError } = await supabase.storage
           .from("event-banners")
           .upload(unique, bannerFile, { contentType: bannerFile.type, upsert: false })
-
-        if (uploadError) {
-          setFormError("Gagal upload banner: " + uploadError.message)
-          setSaving(false)
-          return
-        }
+        if (uploadError) { setFormError("Gagal upload banner: " + uploadError.message); setSaving(false); return }
         bannerPath = unique
       }
 
-      // ⬇️ Konversi nilai input (lokal) → ISO UTC agar aman di DB (timestamptz)
+      // konversi waktu ke ISO
       const startsISO = localInputToISO(event.starts_at)
-      const endsISO   = event.ends_at ? localInputToISO(event.ends_at) : null
+      const endsISO = event.ends_at ? localInputToISO(event.ends_at) : null
 
       const payload = {
         title: event.title.trim(),
         description: event.description?.trim() || null,
-        starts_at: startsISO,        // e.g. "2025-10-22T02:00:00.000Z"
-        ends_at: endsISO,            // atau null
+        starts_at: startsISO,
+        ends_at: endsISO,
         location_name: event.location_name?.trim() || null,
         address: event.address?.trim() || null,
-        category_id: event.category_id || null, // "" → null
+        category_id: event.category_id || null,
         banner_path: bannerPath,
+        // tambahan:
+        price: event.price ?? 0,
+        currency: event.currency || "IDR",
+        payment_mode: event.payment_mode || "free",
+        whatsapp_contact: event.whatsapp_contact?.trim() || null,
+        external_payment_url: event.external_payment_url?.trim() || null,
       }
 
       const { error } = await supabase.from("events").insert([payload])
-      if (error) {
-        setFormError("Gagal menambahkan event: " + error.message)
-        setSaving(false)
-        return
-      }
-
+      if (error) { setFormError("Gagal menambahkan event: " + error.message); setSaving(false); return }
       router.push("/admin/events")
     } catch (err: any) {
       setFormError(err?.message || "Terjadi kesalahan tak terduga.")
@@ -159,10 +151,7 @@ export default function CreateEventPage() {
       {/* Top bar */}
       <header className="border-b border-zinc-200/70 bg-white/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <Link
-            href="/admin/events"
-            className="inline-flex items-center rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-800 shadow-sm hover:bg-zinc-50"
-          >
+          <Link href="/admin/events" className="inline-flex items-center rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-800 shadow-sm hover:bg-zinc-50">
             ← Kembali
           </Link>
           <span className="text-xs text-zinc-500">Buat Event</span>
@@ -174,12 +163,9 @@ export default function CreateEventPage() {
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-sm">
           <div className="mb-6">
             <h1 className="text-xl font-semibold text-zinc-900">Buat Event Baru</h1>
-            <p className="mt-1 text-sm text-zinc-600">
-              Lengkapi informasi berikut. Banner disarankan rasio 16:9.
-            </p>
+            <p className="mt-1 text-sm text-zinc-600">Lengkapi informasi berikut. Banner disarankan rasio 16:9.</p>
           </div>
 
-          {/* Alert error global */}
           {formError && (
             <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
               {formError}
@@ -233,7 +219,6 @@ export default function CreateEventPage() {
                     className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </label>
-
                 <label className="block text-sm font-medium text-zinc-800">
                   Selesai
                   <input
@@ -259,7 +244,6 @@ export default function CreateEventPage() {
                     placeholder="Contoh: Alun-Alun Majalengka"
                   />
                 </label>
-
                 <label className="block text-sm font-medium text-zinc-800">
                   Alamat
                   <input
@@ -286,13 +270,76 @@ export default function CreateEventPage() {
                   >
                     <option value="">{catLoading ? "Memuat kategori..." : "-- Pilih Kategori --"}</option>
                     {categories.map((cat) => (
-                      <option key={String(cat.id)} value={String(cat.id)}>
-                        {cat.name}
-                      </option>
+                      <option key={String(cat.id)} value={String(cat.id)}>{cat.name}</option>
                     ))}
                   </select>
                 </label>
                 {catError && <p className="mt-1 text-xs text-red-600">{catError}</p>}
+              </div>
+
+              {/* --- Pendaftaran / Harga --- */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-zinc-800">
+                  Harga (opsional)
+                  <input
+                    type="number"
+                    name="price"
+                    min={0}
+                    value={event.price ?? 0}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="0 = Gratis"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium text-zinc-800">
+                  Mata Uang
+                  <input
+                    name="currency"
+                    value={event.currency ?? "IDR"}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="IDR"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <label className="block text-sm font-medium text-zinc-800">
+                  Mode Pendaftaran
+                  <select
+                    name="payment_mode"
+                    value={event.payment_mode}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="free">Free (Form di situs)</option>
+                    <option value="external">External (WA/Situs Panitia)</option>
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-zinc-800">
+                  WhatsApp Panitia (opsional)
+                  <input
+                    name="whatsapp_contact"
+                    value={event.whatsapp_contact}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="62812xxxx (tanpa +)"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium text-zinc-800">
+                  URL Pendaftaran Eksternal (opsional)
+                  <input
+                    type="url"
+                    name="external_payment_url"
+                    value={event.external_payment_url}
+                    onChange={handleChange}
+                    className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="https://panitia.tld/form"
+                  />
+                </label>
               </div>
             </div>
 
@@ -308,23 +355,16 @@ export default function CreateEventPage() {
                     className="mt-1 block w-full cursor-pointer rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-emerald-600 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white hover:file:bg-emerald-700"
                   />
                 </label>
-                <p className="mt-1 text-xs text-zinc-500">
-                  File yang di upload, maksimal 5MB.
-                </p>
-
+                <p className="mt-1 text-xs text-zinc-500">File yang di upload, maksimal 5MB.</p>
                 {bannerPreview && (
                   <div className="mt-3 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={bannerPreview}
-                      alt="Preview banner"
-                      className="h-40 w-full object-cover"
-                    />
+                    <img src={bannerPreview} alt="Preview banner" className="h-40 w-full object-cover" />
                     <div className="flex justify-end p-2">
                       <button
                         type="button"
                         onClick={() => { setBannerFile(null); setBannerPreview(null) }}
-                        className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100"
+                        className="rounded-2xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 hover:bg-zinc-100"
                       >
                         Hapus gambar
                       </button>
@@ -333,7 +373,6 @@ export default function CreateEventPage() {
                 )}
               </div>
 
-              {/* Tips kecil */}
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3 text-xs text-emerald-800">
                 Event tanpa banner tetap bisa ditampilkan. Kamu bisa menambah banner nanti.
               </div>

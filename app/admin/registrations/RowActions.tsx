@@ -1,3 +1,4 @@
+// PATH: app/admin/registrations/RowActions.tsx
 "use client"
 
 import { useRouter } from "next/navigation"
@@ -8,31 +9,37 @@ export default function RowActions({
   currentStatus,
 }: {
   id: string
-  currentStatus: "registered" | "checked_in" | "cancelled"
+  currentStatus: "pending" | "registered" | "paid" | "checked_in" | "cancelled"
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
-  const updateStatus = async (status: "registered" | "checked_in" | "cancelled") => {
+  const updateStatus = async (status: "pending" | "registered" | "paid" | "checked_in" | "cancelled") => {
     if (status === currentStatus) return
     setLoading(true)
-    const res = await fetch(`/api/admin/registrations/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    })
-    setLoading(false)
-    if (res.ok) router.refresh()
-    else alert((await res.json()).message || "Gagal update status")
+    try {
+      const res = await fetch(`/api/admin/registrations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      if (res.ok) router.refresh()
+      else alert((await res.json()).message || "Gagal update status")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const del = async () => {
     if (!confirm("Hapus registrasi ini?")) return
     setLoading(true)
-    const res = await fetch(`/api/admin/registrations/${id}`, { method: "DELETE" })
-    setLoading(false)
-    if (res.ok) router.refresh()
-    else alert((await res.json()).message || "Gagal menghapus")
+    try {
+      const res = await fetch(`/api/admin/registrations/${id}`, { method: "DELETE" })
+      if (res.ok) router.refresh()
+      else alert((await res.json()).message || "Gagal menghapus")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -43,7 +50,9 @@ export default function RowActions({
         disabled={loading}
         onChange={(e) => updateStatus(e.target.value as any)}
       >
+        <option value="pending">Pending</option>
         <option value="registered">Registered</option>
+        <option value="paid">Paid</option>
         <option value="checked_in">Checked-in</option>
         <option value="cancelled">Cancelled</option>
       </select>

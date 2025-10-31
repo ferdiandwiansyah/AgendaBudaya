@@ -309,7 +309,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
                   {event.whatsapp_contact ? (
                     <a
                       href={`https://wa.me/${event.whatsapp_contact}?text=${encodeURIComponent(
-                        `Halo panitia, saya ingin mendaftar event "${event.title}" (${APP_URL}/events/${event.slug}).`
+                        `Halo panitia, saya ingin mendaftar event "${event.title}" untuk Pendaftaranya Gimana?.`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"

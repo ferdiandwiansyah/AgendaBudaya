@@ -126,7 +126,7 @@ export default function HeroSection({
 
       {/* Sticky CTA (mobile) */}
       <div className="sticky bottom-3 z-10 px-3 md:hidden">
-        <div className="rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-black/5 backdrop-blur">
+        
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm">
             </div>
@@ -137,7 +137,6 @@ export default function HeroSection({
               Daftar
             </a>
           </div>
-        </div>
       </div>
     </section>
   )

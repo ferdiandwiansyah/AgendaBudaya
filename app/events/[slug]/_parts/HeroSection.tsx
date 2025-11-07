@@ -119,7 +119,7 @@ export default function HeroSection({
             href="#registrasi"
             className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
-            Registrasi Segera
+            Daftar
           </a>
         </div>
       </div>
@@ -129,10 +129,6 @@ export default function HeroSection({
         <div className="rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-black/5 backdrop-blur">
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm">
-              <div className="font-semibold text-zinc-900">{mon} {day}</div>
-              <div className="text-zinc-600">
-                {niceStart}{niceEnd ? ` – ${niceEnd}` : ""} WIB
-              </div>
             </div>
             <a
               href="#registrasi"

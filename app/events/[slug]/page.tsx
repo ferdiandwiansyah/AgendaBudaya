@@ -1,11 +1,13 @@
 // PATH: app/events/[slug]/page.tsx
-import Link from "next/link"
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { createServerSupabase } from "@/lib/supabaseServer"
 import { buildGoogleCalURL } from "@/lib/ics"
-import { Badge } from "../../components/ui/Badge"
-import RegisterForm from "./RegisterForm"
+
+import HeroSection from "./_parts/HeroSection"
+import DescriptionSection from "./_parts/DescriptionSection"
+import LocationSection from "./_parts/LocationSection"
+import RegistrationSection from "./_parts/RegistrationSection"
 
 const BANNER_BUCKET = "event-banners"
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
@@ -160,190 +162,51 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         : undefined,
     }
 
+    const priceText = asIDR(event.price, event.currency)
+
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-        {/* Header Hero */}
-        <section className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm ring-1 ring-black/5">
-          {/* Latar mesh (emerald/teal agar selaras) */}
-          <div
-            className="pointer-events-none absolute inset-0 -z-10"
-            style={{
-              backgroundImage: `
-                radial-gradient(60% 60% at 0% 0%, rgba(16,185,129,0.12), transparent 55%),
-                radial-gradient(60% 60% at 100% 0%, rgba(13,148,136,0.10), transparent 50%)
-              `,
-            }}
-          />
-          {/* Banner */}
-          <div className="relative">
-            {event.banner_url ? (
-              <img
-                src={event.banner_url}
-                alt={event.title}
-                className="max-h-[420px] w-full rounded-t-2xl object-cover"
-              />
-            ) : (
-              <div className="grid h-48 w-full place-items-center rounded-t-2xl bg-emerald-50 text-emerald-600">
-                Tidak ada banner
-              </div>
-            )}
-
-            {/* Badge tanggal (kiri-atas) */}
-            <div className="absolute left-4 top-4 rounded-xl bg-white/95 px-2 py-1 text-center shadow-sm ring-1 ring-black/5 backdrop-blur">
-              <div className="text-[11px] font-semibold leading-3 text-emerald-600">{mon}</div>
-              <time className="block text-lg font-bold leading-4 text-zinc-900" dateTime={event.starts_at}>
-                {day}
-              </time>
-            </div>
-
-            {/* Tombol kecil Add to Google Calendar (kanan-atas) */}
-            <a
-              href={gcal}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Add to Google Calendar"
-              aria-label="Add to Google Calendar"
-              className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/95 text-emerald-700 shadow-sm ring-1 ring-black/5 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M7 2h2v3H7zM15 2h2v3h-2z" />
-                <path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 4v10h14V9H5z" />
-              </svg>
-              <span className="sr-only">Add to Google Calendar</span>
-            </a>
-          </div>
-
-          {/* Judul + meta */}
-          <div className="p-5">
-            <h1 className="font-serif text-3xl text-zinc-900">{event.title}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-600">
-              <Badge>{event.category_name ?? "Umum"}</Badge>
-              <span className="text-zinc-300">•</span>
-              <span>Mulai: {niceStart} WIB</span>
-              {niceEnd && (
-                <>
-                  <span className="text-zinc-300">•</span>
-                  <span>Selesai: {niceEnd} WIB</span>
-                </>
-              )}
-              <span className="text-zinc-300">•</span>
-              <span>Harga: {asIDR(event.price, event.currency)}</span>
-            </div>
-
-            {/* CTA bar — pakai kelas emerald, bukan <Button /> global */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href="/events"
-                aria-label="Kembali ke daftar"
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-4 text-sm font-medium text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-              >
-                ← Kembali
-              </Link>
-
-              <a
-                href="#registrasi"
-                className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-              >
-                Registrasi Segera
-              </a>
-            </div>
-          </div>
-        </section>
+        {/* Header Hero → dipisah ke komponen */}
+        <HeroSection
+          title={event.title}
+          categoryName={event.category_name}
+          bannerUrl={event.banner_url}
+          startsAt={event.starts_at}
+          niceStart={niceStart}
+          niceEnd={niceEnd}
+          day={day}
+          mon={mon}
+          priceText={priceText}
+          gcal={gcal}
+        />
 
         {/* Konten */}
         <div className="mt-6 grid gap-6 md:grid-cols-3">
           {/* Deskripsi */}
-          <section className="md:col-span-2 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ring-1 ring-black/5">
-            <h2 className="text-base font-semibold text-zinc-900">Deskripsi</h2>
-            <div className="prose prose-sm mt-2 max-w-none text-zinc-700">
-              {event.description ? (
-                <p>{event.description}</p>
-              ) : (
-                <p className="italic text-zinc-500">Belum ada deskripsi.</p>
-              )}
-            </div>
-          </section>
+          <DescriptionSection description={event.description} />
 
           {/* Sidebar: Lokasi + Registrasi */}
           <aside className="space-y-6">
             {(event.location_name || event.address) && (
-              <section className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ring-1 ring-black/5">
-                <h2 className="text-base font-semibold text-zinc-900">Lokasi</h2>
-
-                {event.location_name && (
-                  <p className="mt-2 text-sm text-zinc-700">{event.location_name}</p>
-                )}
-
-                {mapsHref && (
-                  <p className="mt-2 text-sm">
-                    <a
-                      href={mapsHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700 underline-offset-2 hover:bg-emerald-100"
-                    >
-                      <span className="font-medium">
-                        {isUrl(event.address) ? "Buka di Google Maps" : "Lihat peta"}
-                      </span>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                        <path d="M14 3h7v7h-2V6.41l-9.29 9.3-1.42-1.42 9.3-9.29H14V3z" />
-                        <path d="M5 5h6V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6h-2v6H5V5z" />
-                      </svg>
-                    </a>
-                  </p>
-                )}
-              </section>
+              <LocationSection
+                locationName={event.location_name}
+                address={event.address}
+                mapsHref={mapsHref}
+                addressIsUrl={addressIsUrl}
+              />
             )}
 
-            {/* Registrasi: kondisional */}
-            <section
-              id="registrasi"
-              className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ring-1 ring-black/5"
-            >
-              <h2 className="mb-2 text-base font-semibold text-zinc-900">Pendaftaran</h2>
-
-              {event.payment_mode === "external" ? (
-                <>
-                  {event.whatsapp_contact ? (
-                    <a
-                      href={`https://wa.me/${event.whatsapp_contact}?text=${encodeURIComponent(
-                        `Halo panitia, saya ingin mendaftar event "${event.title}" untuk Pendaftaranya Gimana?.`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                    >
-                      Daftar via WhatsApp
-                    </a>
-                  ) : null}
-
-                  {event.external_payment_url ? (
-                    <a
-                      href={event.external_payment_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 ml-2 inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-white px-5 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                    >
-                      Daftar di Situs Resmi
-                    </a>
-                  ) : null}
-
-                  {!event.whatsapp_contact && !event.external_payment_url && (
-                    <p className="mt-2 text-sm text-amber-700">
-                      Pendaftaran eksternal belum dikonfigurasi (WA/URL belum diisi).
-                    </p>
-                  )}
-                </>
-              ) : (
-                <RegisterForm
-                  eventId={event.id}
-                  capacity={event.capacity ?? null}
-                  registeredCount={event.registrations_count ?? 0}
-                />
-              )}
-            </section>
+            <RegistrationSection
+              eventId={event.id}
+              capacity={event.capacity ?? null}
+              registeredCount={event.registrations_count ?? 0}
+              paymentMode={event.payment_mode}
+              whatsappContact={event.whatsapp_contact}
+              externalPaymentUrl={event.external_payment_url}
+              title={event.title}
+            />
           </aside>
         </div>
       </div>
@@ -363,4 +226,3 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
 
   notFound()
 }
-

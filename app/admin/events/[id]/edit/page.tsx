@@ -336,7 +336,7 @@ export default function EditEventPage() {
               {/* --- Pendaftaran / Harga --- */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-medium text-zinc-800">
-                  Harga (opsional)
+                  Harga 
                   <input
                     type="number"
                     name="price"
@@ -370,12 +370,12 @@ export default function EditEventPage() {
                     className="mt-1 h-11 w-full rounded-2xl border border-zinc-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="free">Free (Form di situs)</option>
-                    <option value="external">External (WA/Situs Panitia)</option>
+                    <option value="external">Berbayar (WA/Situs Panitia)</option>
                   </select>
                 </label>
 
                 <label className="block text-sm font-medium text-zinc-800">
-                  WhatsApp Panitia (opsional)
+                  WhatsApp Panitia 
                   <input
                     name="whatsapp_contact"
                     value={event.whatsapp_contact}
@@ -386,7 +386,7 @@ export default function EditEventPage() {
                 </label>
 
                 <label className="block text-sm font-medium text-zinc-800">
-                  URL Pendaftaran Eksternal (opsional)
+                  URL Pendaftaran 
                   <input
                     type="url"
                     name="external_payment_url"

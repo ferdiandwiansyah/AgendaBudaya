@@ -237,7 +237,7 @@ export default async function Page() {
       <section className="container mx-auto max-w-6xl px-4 pb-10 sm:pb-12">
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-zinc-900 sm:text-2xl">Event Populer</h2>
+            <h2 className="text-xl font-semibold text-zinc-900 sm:text-2xl">Event Unggulan</h2>
           </div>
           <Link
             href="/events"
